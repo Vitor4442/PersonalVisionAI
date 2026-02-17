@@ -5,6 +5,8 @@ from mediapipe.tasks.python.vision import drawing_styles
 from mediapipe.tasks.python import vision
 import cv2
 import numpy as np
+import threading
+import queue
 
 BaseOptions = mp.tasks.BaseOptions
 PoseLandmarker = mp.tasks.vision.PoseLandmarker
@@ -15,6 +17,7 @@ class personalAI:
     def __init__(self, file_name = "rosca2cor.mp4"):
         self.file_name = file_name
         self.model_path = "pose_landmarker_full.task"
+        self.image_q = queue.Queue()
         self.options = PoseLandmarkerOptions(
             base_options=BaseOptions(model_asset_path=self.model_path),
             running_mode=VisionRunningMode.VIDEO)
@@ -36,7 +39,7 @@ class personalAI:
 
         return annotated_image
 
-    def process_image(self, drawm, display):
+    def process_video(self, drawm, display):
         with python.vision.PoseLandmarker.create_from_options(self.options) as landmark:
             cap = cv2.VideoCapture(self.file_name)
             fps = cap.get(cv2.CAP_PROP_FPS)
@@ -58,15 +61,22 @@ class personalAI:
                         if cv2.waitKey(25) & 0xFF == ord('q'):
                             break
 
+                    frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+                    self.image_q.put((frame, detection_result, calc_ts))
                 else:
                     break
 
             cap.release()
             cv2.destroyAllWindows()
+            self.image_q.put((1, 1, "done"))
+
+    def run(self, draw=True, display=False):
+        t1 = threading.Thread(target=self.process_video, args=(draw, display))
+        t1.start()
 
 if __name__ == "__main__":
     PersonalAI = personalAI()
-    PersonalAI.process_image(drawm=False, display=True)
+    PersonalAI.process_video(drawm=True, display=True)
 
 
 
