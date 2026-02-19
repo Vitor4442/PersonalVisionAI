@@ -7,6 +7,7 @@ import cv2
 import numpy as np
 import threading
 import queue
+from BicepsCurlCounter import BicepsCurlCounter
 
 BaseOptions = mp.tasks.BaseOptions
 PoseLandmarker = mp.tasks.vision.PoseLandmarker
@@ -14,10 +15,11 @@ PoseLandmarkerOptions = mp.tasks.vision.PoseLandmarkerOptions
 VisionRunningMode = mp.tasks.vision.RunningMode
 
 class personalAI:
-    def __init__(self, file_name = "rosca2cor.mp4"):
+    def __init__(self, file_name = "roscavitor.mp4"):
         self.file_name = file_name
         self.model_path = "pose_landmarker_full.task"
         self.image_q = queue.Queue()
+        self.rep_counter = BicepsCurlCounter()
         self.options = PoseLandmarkerOptions(
             base_options=BaseOptions(model_asset_path=self.model_path),
             running_mode=VisionRunningMode.VIDEO)
@@ -53,6 +55,26 @@ class personalAI:
                     calc_ts = int(calc_ts + 1000 / fps)
                     detection_result = landmark.detect_for_video(mp_image, calc_ts)
 
+                    h, w, _ = frame.shape
+                    reps, angle = self.rep_counter.update(detection_result, w, h)
+
+                    cv2.putText(frame,
+                                f"Reps: {reps}",
+                                (30, 60),
+                                cv2.FONT_HERSHEY_SIMPLEX,
+                                1,
+                                (0, 255, 0),
+                                2)
+
+                    if angle is not None:
+                        cv2.putText(frame,
+                                    f"Angle: {int(angle)}",
+                                    (30, 100),
+                                    cv2.FONT_HERSHEY_SIMPLEX,
+                                    1,
+                                    (255, 255, 0),
+                                    2)
+
                     if drawm:
                         frame = self.draw_landmarks_on_image(frame, detection_result)
 
@@ -77,7 +99,6 @@ class personalAI:
 if __name__ == "__main__":
     PersonalAI = personalAI()
     PersonalAI.process_video(drawm=True, display=True)
-
 
 
 
